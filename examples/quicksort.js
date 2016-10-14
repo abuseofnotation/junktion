@@ -1,7 +1,4 @@
 module.exports = {
-  equals: {
-    $eval: (context, args) => context === args.to
-  },
   lengths: {
     $eval: (context, args) => context.length
   },
@@ -27,7 +24,11 @@ module.exports = {
     $eval: 'filters', 
     f: { $eval: (env, args) => (val) => args.value < val } 
   },
-  quickSort: {
+  less: {
+  },
+  more: {
+  },
+  $return: {
     token: { $eval: (env)=> env[0] },
     newList: { $eval: (env) => {return env.slice(1)} },
     firstHalf: { $eval: 'lessThan', $from: { $eval: 'newList' }, value: { $eval: 'token'} },
@@ -44,5 +45,4 @@ module.exports = {
       ]
     }
   },
-  $return: { $eval: 'quickSort', $from: [1222, 11, 0, 122, 3, 3, 2, 3, 4, 6, 12] }
 }
