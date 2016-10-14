@@ -34,6 +34,8 @@ const addBackReference = (obj, parent) => {
   })
   backReferences.set(obj, parent)
 }
+
+const checkIfContext = (context, expression) =>  expression === 'this' ? context : undefined
 //Obtain a reference to a a function
 const findInScope = (expression, name) => 
   typeof expression[name] !== 'undefined'      ? expression[name] 
@@ -71,25 +73,34 @@ const evalExpression = (expression, context, args, scope) => {
   console.log('scope', scope)
   //resolve an expression
   const resolve = ($eval) =>
-  findInEnvironments([context, args], $eval) 
+  checkIfContext(context, $eval) 
+      || findInEnvironments([context, args], $eval) 
       || findInScope(scope || expression, $eval) 
       || cannotFindFunction(expression, context, args, $eval)
 
   if (typeof expression === 'string') {
     return resolve(expression)
   }
-  //} else if (typeof expression === 'object') {
+  
+
+  const $if = expression['$if'] 
+  const $then = expression['$then'] 
+  const $else = expression['$else'] 
 
   const $from = expression['$from'] 
   const $eval = expression['$eval'] 
+
   const $return = expression['$return'] 
-  if (typeof $return !== 'undefined') {
-    return evalExpression($return, expression, {})
+
+  if (typeof $if !== 'undefined') {
+    return evalExpression($if, context, args) ? evalExpression($then, context, args)
+          :                                     evalExpression($else, context, args)
+  } else if (typeof $return !== 'undefined') {
+    return evalExpression($return, context, args)
   } else if (typeof $eval === 'string') {
     //Search for the function that needs to be invoked.
     //It can either be a method from the environments, or a function that is in the scope
     const newExpression = resolve($eval)
-    if (isExpression(newExpression)) {
       //The arguments to the new expression should be part of the invocation object.
       const newArgs = evalArguments(expression, context, args)
 
@@ -97,23 +108,12 @@ const evalExpression = (expression, context, args, scope) => {
       const newContext = $from !== undefined ? evalExpression($from, context, newArgs) : context
       
       return evalExpression(newExpression, newContext, newArgs)
-    } else {
-      console.log(`
-to 
-  ${JSON.stringify(newExpression)}
-
-`)
-      return newExpression
-    }
 
   } else if (typeof $eval === 'function'){
     return $eval.apply(context, [context, args])
   } else {
     if (Array.isArray(expression)) {
-      return expression.map((expression) => 
-          isExpression(expression) ? evalExpression(expression, context, args)
-          :                          expression
-      ) 
+      return expression.map((expression) => evalExpression(expression, context, args)) 
     } else {
       return expression
     }
