@@ -74,6 +74,7 @@ module.exports = (expression) => {
 
     const $from = expression['$from'] 
     const $eval = expression['$eval'] 
+    const $curry = expression['$curry'] 
 
     const $return = expression['$return'] 
 
@@ -82,20 +83,24 @@ module.exports = (expression) => {
             :                                     evalExpression($else, context, args)
     } else if (typeof $return !== 'undefined') {
       return evalExpression($return, context, args)
+    } else if (typeof $curry === 'string') {
+      const curriedExpression = resolve($curry)
+      const curriedArgs = evalArguments(expression, context, args)
+      return {$eval: (env, args) => evalExpression(curriedExpression, env, Object.assign({}, curriedArgs, args))}
     } else if (typeof $eval === 'string') {
       //Search for the function that needs to be invoked.
       //It can either be a method from the environments, or a function that is in the scope
       const newExpression = resolve($eval)
-        //The arguments to the new expression should be part of the invocation object.
-        const newArgs = evalArguments(expression, context, args)
+      //The arguments to the new expression should be part of the invocation object.
+      const newArgs = evalArguments(expression, context, args)
 
-        //Change the context if new one is specified, else, leave the old one.
-        const newContext = $from !== undefined ? evalExpression($from, context, newArgs) : context
-        
-        return evalExpression(newExpression, newContext, newArgs)
+      //Change the context if new one is specified, else, leave the old one.
+      const newContext = $from !== undefined ? evalExpression($from, context, newArgs) : context
+      
+      return evalExpression(newExpression, newContext, newArgs)
 
     } else if (typeof $eval === 'function'){
-      return $eval.apply(context, [context, args, (expression, args) => evalExpression(expression, context, args)])
+      return $eval.apply(context, [context, args, (expression, newContext, args) => evalExpression(expression, newContext || context, args)])
     } else {
       if (Array.isArray(expression)) {
         return expression.map((expression) => evalExpression(expression, context, args)) 

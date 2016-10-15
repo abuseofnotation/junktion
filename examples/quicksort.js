@@ -3,36 +3,33 @@ module.exports = {
     $eval: (context, args) => context.length
   },
   fold: {
-    //$eval: (env) => env.reduce(env.acc, env.f)
     $eval:(context, args) => {
       return context.reduce(args.f, args.acc)
     }
   },
   filters: {
-    $eval: (env, args) => env.filter(args.f)
+    $eval: (env, args, eval) => {
+      return env.filter((val)=> eval(args.with, val))
+    }
   },
   flat: {
     f:(acc, element) => acc.concat(element) , 
     acc: [],
     $eval: 'fold',
   },
-  lessThan: { 
-    $eval: 'filters', 
-    f: { $eval: (env, args) => (val) => args.value > val }
-  },
-  moreThan: { 
-    $eval: 'filters', 
-    f: { $eval: (env, args) => (val) => args.value < val } 
-  },
-  less: {
-  },
-  more: {
-  },
   $return: {
     token: { $eval: (env)=> env[0] },
     newList: { $eval: (env) => {return env.slice(1)} },
-    firstHalf: { $eval: 'lessThan', $from: { $eval: 'newList' }, value: { $eval: 'token'} },
-    secondHalf: { $eval: 'moreThan', $from: { $eval: 'newList' }, value: { $eval: 'token'} },
+    firstHalf: { 
+      $eval: 'filters', 
+      $from: { $eval: 'newList' }, 
+      with: {$curry: 'less', than: { $eval: 'token'} } 
+    },
+    secondHalf: { 
+      $eval: 'filters', 
+      $from: { $eval: 'newList' }, 
+      with: {$curry: 'more', than: { $eval: 'token'} } 
+    },
 
     $if: { $eval:'equals', to:0, $from: {$eval: 'lengths'} },
     $then: { $eval: 'this' },
