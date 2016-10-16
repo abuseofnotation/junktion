@@ -7,5 +7,6 @@ module.exports = {
   },
   more: {
     $eval: (env, args) => env > args.than
-  }
+  },
+  List: require('./list.js')
 }
