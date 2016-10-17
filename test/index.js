@@ -1,6 +1,8 @@
 const junk = require('../src/interpreter')
 const quickSort = require('../examples/quicksort')
-
+if ( global.v8debug ) {
+	global.v8debug.Debug.setBreakOnException(); // speaks for itself
+}
 exports.quickSort = (test) => {
   test.deepEqual(
     junk({

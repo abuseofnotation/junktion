@@ -1,3 +1,5 @@
+const core = require('folktale/core')
+
 const findInEnvironments = (environments, name) => 
   environments.reduce((acc, environment) => acc !== undefined ? acc : environment[name] , undefined)
 
@@ -22,17 +24,16 @@ const logExecution = (expression, context, args) => {
 
 const checkIfContext = (context, expression) =>  expression === 'this' ? context : undefined
 
-
 const parent = Symbol.for('parent')
 
 //Add a reference to a parent scope.
-const addBackReference = (obj, parentScope) => {
+const traverse = (obj, parentScope, f) => {
   Object.keys(obj).forEach((key) => {
     if (typeof obj[key] === 'object') {
-      addBackReference(obj[key], obj)
+      obj[key] = f(obj[key], obj)
+      traverse(obj[key], obj, f)
     }
   })
-  Object.defineProperty(obj, parent, {configurable: true, ennumerable: false, value: parentScope})
 }
 
 //Obtain a reference to a function
@@ -134,7 +135,18 @@ const evalArguments = (expression, context, args) => {
 
 module.exports = (expression) => {
   //Build lexical scope and execute expression with no arguments and context
-  addBackReference(expression, standardLib)
+  standardLib.$return = expression
+  traverse(standardLib, undefined, (obj, parentScope) => {
+    /*
+    if (Array.isArray(obj) && parentScope.$eval !== 'List') {
+      obj = {$eval:'List', value:obj}
+    }
+    */
+    Object.defineProperty(obj, parent, {configurable: true, ennumerable: false, value: parentScope})
+    return obj
+  })
+
+  console.log(standardLib)
 
   return evalExpression(expression, {}, {})
 }

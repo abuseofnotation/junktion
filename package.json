@@ -19,5 +19,8 @@
   "bugs": {
     "url": "https://github.com/boris-marinov/junktion/issues"
   },
-  "homepage": "https://github.com/boris-marinov/junktion#readme"
+  "homepage": "https://github.com/boris-marinov/junktion#readme",
+  "dependencies": {
+    "folktale": "^2.0.0-alpha1"
+  }
 }

@@ -17,9 +17,11 @@ module.exports = {
     acc: [],
     $eval: 'fold',
   },
+  head: { $eval: (env)=> env[0] },
+  tail: { $eval: (env) => {return env.slice(1)} },
   $return: {
-    token: { $eval: (env)=> env[0] },
-    newList: { $eval: (env) => {return env.slice(1)} },
+    token: {$eval: 'head'},
+    newList: {$eval: 'tail'},
     firstHalf: { 
       $eval: 'filters', 
       $from: { $eval: 'newList' }, 
