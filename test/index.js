@@ -53,6 +53,7 @@ exports.recursion = (test) => {
   }).value, [1,2,3])
   test.done()
 }
+/*
 exports.higherOrderFunctions = (test) => {
   test.deepEqual(junk({
     $eval: 'filters',
@@ -64,3 +65,34 @@ exports.higherOrderFunctions = (test) => {
   }).value, [1,2,3])
   test.done()
 }
+*/
+exports.eval = (test) => {
+  test.deepEqual(junk({
+    $eval: 'less',
+    than: 1,
+    $from: -1,
+      
+  }), true)
+  test.done()
+}
+exports.evalExplicit = (test) => {
+  test.deepEqual(junk({
+    $eval: 'less',
+    $with:{than: 1},
+    $from: -1,
+  }), true)
+  test.done()
+}
+/*
+exports.curry = (test) => {
+  test.deepEqual(junk({
+    $eval: {
+      $curry: 'less',
+      than: 1
+    }, 
+    $from: -1
+      
+  }), true)
+  test.done()
+}
+*/

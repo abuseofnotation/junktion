@@ -1,33 +1,5 @@
 const core = require('folktale/core')
-
-const whileNotUndefined = (functions) => {
-  for (var i = 0; i < functions.length; i++) {
-    var result = functions[i]()
-    if (result !== undefined){
-      return result
-    }
-  }
-}
-const checkIfContext = (context, expression) =>  expression === 'this' ? context : undefined
-
-const findInEnvironments = (environments, name) => 
-  environments.reduce((acc, environment) => acc !== undefined ? acc : environment[name] , undefined)
-
-//Obtain a reference to a function
-const findInScope = (expression, name) => {
-  return typeof expression[name] !== 'undefined'      ? expression[name] 
-   :typeof expression[parent] !== 'undefined' ? findInScope(expression[parent], name)
-   :undefined
-}
-
-const cannotFindFunction = (expression, context, args, eval) => {throw `
-Could not find '${eval}'.
-
-It was not part of the context like ${Object.keys(context).join(', ')}
-       Nor it was an argument, like ${Object.keys(args).join(', ')}
-Also it wasn't part of the scope.`
-
-}
+const resolver = require('./resolve')
 
 const logExecution = (expression, context, args) => {
   console.log(`Executing ${JSON.stringify(expression)}
@@ -53,19 +25,12 @@ const traverse = (obj, parentScope, f) => {
 }
 
 
-  const standardLib = require('./standard-lib')
+const standardLib = require('./standard-lib')
 
-const resolveAll = (expression, context, args) => {
-  const resolve = ($eval) =>
-  whileNotUndefined([
-    () => checkIfContext(context, $eval),
-    () => findInEnvironments([context, args], $eval),
-    () => findInScope(expression, $eval), 
-    () => cannotFindFunction(expression, context, args, $eval)])
+const resolveExpression = (expression, context, args) => {
+  const resolve = resolver(expression, context, args) 
 
-  //var newExpression = Object.create(expression)
   var newExpression = {}
-  
   Object.keys(expression).forEach((key) => {
 
     if(typeof expression[key] === 'string') {
@@ -86,28 +51,32 @@ const resolveAll = (expression, context, args) => {
   */
 }
 
-
 const evalArray = (expression, context, args) => expression.map((expression) => evalExpression(expression, context, args)) 
 
-const evalObjectExpression = (expressionRaw, oldContext, args) => {
-
-
+const evalContext = (expressionRaw, oldContext, args) => {
   const $from = expressionRaw['$from'] 
-  //Change the context if new one is specified, else, leave the old one.
-  const context = $from !== undefined ? evalExpression($from, oldContext, args) : oldContext
-  
-  //Resolve the arguments(without evaluating anything
-  const expression = resolveAll(expressionRaw, context, args)
+  return $from !== undefined ? evalExpression($from, oldContext, args) : oldContext
+}
 
+const evalObjectExpression = (expression, context, args) => {
+    const newContext = evalContext(expression, context, args)
+    const newExpression = resolveExpression(expression, newContext, args)
+    return evalS(newExpression, newContext, args)
+}
+
+
+const evalS = (expression, context, args) => {
+  
   const $if = expression['$if'] 
   const $then = expression['$then'] 
   const $else = expression['$else'] 
 
   const $eval = expression['$eval'] 
+  const $with = expression['$with'] 
   const $curry = expression['$curry'] 
 
   const $return = expression['$return'] 
-  console.log('Resolved expression to', expression)
+//  console.log('Resolved expression to', expression)
 
   //Exec the expression, depending on its type
   if (typeof $if !== 'undefined') {
@@ -125,9 +94,10 @@ const evalObjectExpression = (expressionRaw, oldContext, args) => {
     }
   } else if (typeof $eval !== 'undefined') {
     //The arguments to the new expression should be part of the invocation object.
-    const newArgs = evalArguments(expression, context, args)
-    console.log('Resolving arguments   ', args)
-    console.log('Resolved arguments to ', newArgs)
+    const newArgsRaw = typeof $with === 'object' ? $with : expression
+    const newArgs = evalArguments(newArgsRaw, context, args)
+    //console.log('Resolving arguments   ', args)
+    //console.log('Resolved arguments to ', newArgs)
 
     if(typeof $eval ==='object') {
       return evalExpression($eval, context, newArgs)
@@ -152,12 +122,12 @@ const evalArguments = (expression, context, args) => {
 }
 
 const evalExpression = (expression, context, args) =>  {
-  logExecution(expression, context, args)
+  //logExecution(expression, context, args)
   const result = Array.isArray(expression)      ? evalArray(expression, context, args) 
   : typeof expression === 'object' ? evalObjectExpression(expression, context, args)
   :                                  expression
 
-  console.log('Result', result)
+  //console.log('Result', result)
   if (result === undefined) {
   
     console.log('Could not eval', expression)
