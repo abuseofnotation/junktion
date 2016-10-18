@@ -1,18 +1,18 @@
-
 const listProto = {
   value: 'value',
   lengths: {
-    $eval: (context, args) => context.value.length
-  },
-  fold: {
-    $eval: (context, args) => {
-      return List(context.value.reduce(args.f, args.acc))
-    }
+    $eval: (context, args) => context.value.length,
+    length: true
   },
   filters: {
-    $eval: (env, args, eval) => {
-      return List(env.value.filter((val)=> eval(args.with, val)))
-    }
+    $eval: (context, args, eval) => {
+      return List(context.value.filter((val)=> {
+        debugger
+        return eval(args.with, val)
+      }))
+    },
+    filter:true,
+    with:'with'
   },
   flat: {
     /*
@@ -22,19 +22,21 @@ const listProto = {
     */
     $eval:(env, args, eval) => {
       const result = List(env.value.reduce((acc, val) => acc.concat(val.value), []))
-      debugger
       return List(env.value.reduce((acc, val) => acc.concat(val.value), []))
-    }
+    },
+    flat: true
   },
   head: {
     $eval: (env, args, eval) => {
-      return List(env.value[0])
-    }
+      return env.value[0]
+    },
+    head: true
   },
   tail: {
     $eval: (env, args, eval) => {
       return List(env.value.slice(1))
-    }
+    },
+    tail: true
   }
 }
 const List = (value) => {

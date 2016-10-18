@@ -1,8 +1,24 @@
 const core = require('folktale/core')
 
+const whileNotUndefined = (functions) => {
+  for (var i = 0; i < functions.length; i++) {
+    var result = functions[i]()
+    if (result !== undefined){
+      return result
+    }
+  }
+}
+const checkIfContext = (context, expression) =>  expression === 'this' ? context : undefined
+
 const findInEnvironments = (environments, name) => 
   environments.reduce((acc, environment) => acc !== undefined ? acc : environment[name] , undefined)
 
+//Obtain a reference to a function
+const findInScope = (expression, name) => {
+  return typeof expression[name] !== 'undefined'      ? expression[name] 
+   :typeof expression[parent] !== 'undefined' ? findInScope(expression[parent], name)
+   :undefined
+}
 
 const cannotFindFunction = (expression, context, args, eval) => {throw `
 Could not find '${eval}'.
@@ -22,9 +38,9 @@ const logExecution = (expression, context, args) => {
     `)
 }
 
-const checkIfContext = (context, expression) =>  expression === 'this' ? context : undefined
 
 const parent = Symbol.for('parent')
+
 
 //Add a reference to a parent scope.
 const traverse = (obj, parentScope, f) => {
@@ -36,61 +52,64 @@ const traverse = (obj, parentScope, f) => {
   })
 }
 
-//Obtain a reference to a function
-const findInScope = (expression, name) => 
-  typeof expression[name] !== 'undefined'      ? expression[name] 
-   :typeof expression[parent] !== 'undefined' ? findInScope(expression[parent], name)
-   :undefined
 
   const standardLib = require('./standard-lib')
 
 const resolveAll = (expression, context, args) => {
-  var changed = false
   const resolve = ($eval) =>
-  checkIfContext(context, $eval) 
-      || findInEnvironments([context, args], $eval) 
-      || findInScope(expression, $eval) 
-      || cannotFindFunction(expression, context, args, $eval)
+  whileNotUndefined([
+    () => checkIfContext(context, $eval),
+    () => findInEnvironments([context, args], $eval),
+    () => findInScope(expression, $eval), 
+    () => cannotFindFunction(expression, context, args, $eval)])
 
-  const newExpression = Object.keys(expression).reduce((newExpression, key) => {
+  //var newExpression = Object.create(expression)
+  var newExpression = {}
+  
+  Object.keys(expression).forEach((key) => {
+
     if(typeof expression[key] === 'string') {
       newExpression[key] = resolve(expression[key])
-      changed = true
     } else {
       newExpression[key] = expression[key]
     }
-    return newExpression
-  }, {})
-
-  if (changed) {
+  })
+  return newExpression
+  /*
+  if (Object.keys(newExpression).length !== 0) {
     Object.defineProperty(newExpression, parent, 
         {configurable: true, ennumerable: false, value: expression[parent]})
     return newExpression
   } else {
     return expression
   }
+  */
 }
 
-const evalExpression = (expressionRaw, context, args, scope) => {
-  //logExecution(expression, context, args)
-  console.log('------')
-  console.log('expression', expression)
-  console.log('context', context)
-  console.log('args',args)
-  console.log('scope', scope)
 
+const evalArray = (expression, context, args) => expression.map((expression) => evalExpression(expression, context, args)) 
+
+const evalObjectExpression = (expressionRaw, oldContext, args) => {
+
+
+  const $from = expressionRaw['$from'] 
+  //Change the context if new one is specified, else, leave the old one.
+  const context = $from !== undefined ? evalExpression($from, oldContext, args) : oldContext
+  
+  //Resolve the arguments(without evaluating anything
   const expression = resolveAll(expressionRaw, context, args)
 
   const $if = expression['$if'] 
   const $then = expression['$then'] 
   const $else = expression['$else'] 
 
-  const $from = expression['$from'] 
   const $eval = expression['$eval'] 
   const $curry = expression['$curry'] 
 
   const $return = expression['$return'] 
+  console.log('Resolved expression to', expression)
 
+  //Exec the expression, depending on its type
   if (typeof $if !== 'undefined') {
     return evalExpression($if, context, args) ? evalExpression($then, context, args)
           :                                     evalExpression($else, context, args)
@@ -99,27 +118,24 @@ const evalExpression = (expressionRaw, context, args, scope) => {
   } else if (typeof $curry === 'object') {
     const curriedExpression = $curry
     const curriedArgs = evalArguments(expression, context, args)
-    return {$eval: (env, args) => evalExpression(curriedExpression, env, Object.assign({}, curriedArgs, args))}
-  } else if (typeof $eval === 'object') {
-    //Search for the function that needs to be invoked.
-    //It can either be a method from the environments, or a function that is in the scope
-    const newExpression = $eval
+    return {
+      $eval: (env, args) => {
+        return evalExpression(curriedExpression, env, Object.assign({}, curriedArgs, args))
+      }
+    }
+  } else if (typeof $eval !== 'undefined') {
     //The arguments to the new expression should be part of the invocation object.
     const newArgs = evalArguments(expression, context, args)
+    console.log('Resolving arguments   ', args)
+    console.log('Resolved arguments to ', newArgs)
 
-    //Change the context if new one is specified, else, leave the old one.
-    const newContext = $from !== undefined ? evalExpression($from, context, newArgs) : context
-    
-    return evalExpression(newExpression, newContext, newArgs)
-
-  } else if (typeof $eval === 'function'){
-    return $eval.apply(context, [context, args, (expression, newContext, args) => evalExpression(expression, newContext || context, args)])
-  } else {
-    if (Array.isArray(expression)) {
-      return expression.map((expression) => evalExpression(expression, context, args)) 
-    } else {
-      return expression
+    if(typeof $eval ==='object') {
+      return evalExpression($eval, context, newArgs)
+    } else if (typeof $eval === 'function'){
+      return $eval.apply(context, [context, newArgs, (expression, newContext, args) => evalExpression(expression, newContext || context, args)])
     }
+  } else {
+    return expression
   }
 }
 
@@ -127,26 +143,37 @@ const evalArguments = (expression, context, args) => {
   const copy = Object.assign({}, expression)
   delete copy.$eval
   delete copy.$from
+  delete copy.$curry
+  delete copy.$if
   Object.keys(copy).forEach((key) => {
-    copy[key] = evalExpression(copy[key], context, args, expression)
+    copy[key] = evalExpression(copy[key], context, args)
   })
   return copy
+}
+
+const evalExpression = (expression, context, args) =>  {
+  logExecution(expression, context, args)
+  const result = Array.isArray(expression)      ? evalArray(expression, context, args) 
+  : typeof expression === 'object' ? evalObjectExpression(expression, context, args)
+  :                                  expression
+
+  console.log('Result', result)
+  if (result === undefined) {
+  
+    console.log('Could not eval', expression)
+  }
+  return result
 }
 
 module.exports = (expression) => {
   //Build lexical scope and execute expression with no arguments and context
   standardLib.$return = expression
   traverse(standardLib, undefined, (obj, parentScope) => {
-    /*
     if (Array.isArray(obj) && parentScope.$eval !== 'List') {
       obj = {$eval:'List', value:obj}
     }
-    */
     Object.defineProperty(obj, parent, {configurable: true, ennumerable: false, value: parentScope})
     return obj
   })
-
-  console.log(standardLib)
-
   return evalExpression(expression, {}, {})
 }

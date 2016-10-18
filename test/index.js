@@ -3,6 +3,7 @@ const quickSort = require('../examples/quicksort')
 if ( global.v8debug ) {
 	global.v8debug.Debug.setBreakOnException(); // speaks for itself
 }
+/*
 exports.quickSort = (test) => {
   test.deepEqual(
     junk({
@@ -18,5 +19,48 @@ exports.quickSort = (test) => {
     })
   , [1, 2, 3, 4, 5, 6])
   test.done()
+}
+*/
 
+
+exports.basic = (test) => {
+  test.deepEqual(junk({$eval: 'flat', $from:[[1],[2],[3]]}), {value: [1,2,3]})
+  test.done()
+}
+
+exports.basic2 = (test) => {
+  test.deepEqual(junk({$eval: 'flat', $from:[
+    [{$eval:'less', than: 1, from: 2} ]
+  
+  ]}), {value: [false]})
+  test.done()
+}
+
+exports.recursion = (test) => {
+  test.deepEqual(junk({
+    recur: {
+      $if: {equal: { $eval:'length'}, to: 0},
+      $then: 'this', 
+      $else: {
+        $eval: 'flat',
+        $from: [
+          [{$eval: 'head'}],
+          {$eval: 'recur', $from: {$eval: 'tail'}}
+        ]
+      }
+    },
+    $return:{$eval:'recur' , $from:[1, 2, 3]}
+  }).value, [1,2,3])
+  test.done()
+}
+exports.higherOrderFunctions = (test) => {
+  test.deepEqual(junk({
+    $eval: 'filters',
+    $from: [1, 2, 3, 4, 5, 6],
+    with: {
+      $curry: 'less',
+      than: 4
+    }
+  }).value, [1,2,3])
+  test.done()
 }
