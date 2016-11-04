@@ -24,15 +24,6 @@ const resolveExpression = (expression, context, args) => {
     }
   })
   return newExpression
-  /*
-  if (Object.keys(newExpression).length !== 0) {
-    Object.defineProperty(newExpression, parent, 
-        {configurable: true, ennumerable: false, value: expression[parent]})
-    return newExpression
-  } else {
-    return expression
-  }
-  */
 }
 
 const evalArray = (expression, context, args) => expression.map((expression) => evalExpression(expression, context, args)) 
@@ -45,9 +36,9 @@ const evalContext = (expressionRaw, oldContext, args) => {
 const evalObjectExpression = (expression, context, args) => {
     const newContext = evalContext(expression, context, args)
     const newExpression = resolveExpression(expression, newContext, args)
+    newExpression.$with = newExpression.$with !== undefined ? resolveExpression(newExpression.$with, newContext, args) : undefined
     return evalS(newExpression, newContext, args)
 }
-
 
 const evalS = (expression, context, args) => {
   
@@ -78,8 +69,7 @@ const evalS = (expression, context, args) => {
     }
   } else if (typeof $eval !== 'undefined') {
     //The arguments to the new expression should be part of the invocation object.
-    const newArgsRaw = typeof $with === 'object' ? $with : expression
-    const newArgs = evalArguments(newArgsRaw, context, args)
+    const newArgs = evalArguments($with, context, args)
     //console.log('Resolving arguments   ', args)
     //console.log('Resolved arguments to ', newArgs)
 
@@ -93,12 +83,8 @@ const evalS = (expression, context, args) => {
   }
 }
 
-const evalArguments = (expression, context, args) => {
-  const copy = Object.assign({}, expression)
-  delete copy.$eval
-  delete copy.$from
-  delete copy.$curry
-  delete copy.$if
+const evalArguments = (newArguments, context, args) => {
+  const copy = Object.assign({}, newArguments)
   Object.keys(copy).forEach((key) => {
     copy[key] = evalExpression(copy[key], context, args)
   })

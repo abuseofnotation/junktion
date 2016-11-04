@@ -31,7 +31,6 @@ exports.basic = (test) => {
 exports.basic2 = (test) => {
   test.deepEqual(junk({$eval: 'flat', $from:[
     [{$eval:'less', than: 1, from: 2} ]
-  
   ]}), {value: [false]})
   test.done()
 }
@@ -75,6 +74,7 @@ exports.eval = (test) => {
   }), true)
   test.done()
 }
+
 exports.evalExplicit = (test) => {
   test.deepEqual(junk({
     $eval: 'less',
@@ -83,7 +83,18 @@ exports.evalExplicit = (test) => {
   }), true)
   test.done()
 }
-/*
+
+exports.copyArguments = (test) => {
+  test.deepEqual(junk({
+    $eval: {
+      arguments: {than: 1},
+      $return: { $eval: 'less', $with: 'arguments'}
+    }, 
+    $from: -1
+  }), true)
+  test.done()
+}
+
 exports.curry = (test) => {
   test.deepEqual(junk({
     $eval: {
@@ -95,4 +106,3 @@ exports.curry = (test) => {
   }), true)
   test.done()
 }
-*/
